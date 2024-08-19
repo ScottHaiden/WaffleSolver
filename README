@@ -1,0 +1,10 @@
+This program finds the minimal set of steps required to complete a
+https://wafflegame.net/ puzzle, if given the initial state of the board and
+final state.
+
+This does require you to solve it off line, but if you can correctly do that,
+this program will tell you which blocks to swap to always get 5 stars.
+
+I don't recommend using it to cheat, because it's considerably more difficult
+to solve it off line without the clues and feedback it gives you, as well as
+being less fun, but it was a fun challenge to write.
