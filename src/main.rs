@@ -181,7 +181,7 @@ fn find_swaps(from: &WaffleBoard, into: &WaffleBoard) -> Option<Vec<Swap>> {
             // If this swap makes our position worse (it is more different than cur is), skip it.
             if next.score(&into) <= cur_score { continue; }
 
-            let mut path: Vec<Swap> = steps.iter().cloned().collect();
+            let mut path: Vec<Swap> = steps.iter().copied().collect();
             path.push(swap);
             let state = State::new(next, into, path);
             states.push(state);
