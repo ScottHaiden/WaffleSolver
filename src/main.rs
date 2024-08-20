@@ -21,6 +21,12 @@ struct Coord {
     col: usize,
 }
 
+impl std::fmt::Display for Coord {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        return write!(f, "({},{})", self.row, self.col);
+    }
+}
+
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
 struct Swap {
     a: Coord,
@@ -173,9 +179,9 @@ fn show_transformation(cur: &WaffleBoard, steps: &[Swap]) {
     println!("{}", cur.display());
     if steps.len() == 0 { return; }
     let step = &steps[0];
-    println!("- swap {} at {}x{} with {} at {}x{}",
-             cur.get(step.a), step.a.row, step.a.col,
-             cur.get(step.b), step.b.row, step.b.col);
+    println!("- swap '{}' at {} with '{}' at {}",
+             cur.get(step.a), step.a,
+             cur.get(step.b), step.b);
     return show_transformation(&cur.swap(step.a, step.b), &steps[1..]);
 }
 
@@ -186,18 +192,13 @@ fn main() -> std::io::Result<()> {
         std::process::exit(1);
     }
 
-    let from_path = Path::new(&args[1]);
-    let into_path = Path::new(&args[2]);
+    let from_board = WaffleBoard::new(Path::new(&args[1]))?;
+    let into_board = WaffleBoard::new(Path::new(&args[2]))?;
 
-    let from_board = WaffleBoard::new(&from_path)?;
-    let into_board = WaffleBoard::new(&into_path)?;
-    let diff = into_board.diff(&from_board);
+    match find_swaps(&from_board, &into_board) {
+        Some(path) => show_transformation(&from_board, &path),
+        None       => println!("Could not find a path."),
+    };
 
-    let path = find_swaps(&from_board, &into_board);
-    if let Some(path) = path {
-        show_transformation(&from_board, &path);
-    } else {
-        println!("Could not find a path.");
-    }
     return Ok(());
 }
