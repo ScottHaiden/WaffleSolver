@@ -10,10 +10,12 @@
 //
 // You should have received a copy of the GNU General Public License along with WaffleSolver. If
 // not, see <https://www.gnu.org/licenses/>.
-//
-use std::path::Path;
-use itertools::Itertools;
+
 use std::collections::{BinaryHeap, HashSet};
+use std::path::Path;
+use std::{cmp, env, fmt, fs, io, process};
+
+use itertools::Itertools;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct Coord {
@@ -21,8 +23,8 @@ struct Coord {
     col: usize,
 }
 
-impl std::fmt::Display for Coord {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for Coord {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         return write!(f, "({},{})", self.row, self.col);
     }
 }
@@ -35,8 +37,8 @@ struct Swap {
 
 impl Swap {
     fn new(a: Coord, b: Coord) -> Self {
-        let first = std::cmp::min(a, b);
-        let second = std::cmp::max(a, b);
+        let first = cmp::min(a, b);
+        let second = cmp::max(a, b);
         return Self { a: first, b: second };
     }
 }
@@ -55,8 +57,8 @@ impl Clone for WaffleBoard {
 }
 
 impl WaffleBoard {
-    fn new(path: &Path) -> std::io::Result<Self> {
-        let cells: Vec<String> = std::fs::read_to_string(path)?
+    fn new(path: &Path) -> io::Result<Self> {
+        let cells: Vec<String> = fs::read_to_string(path)?
             .lines()
             .map(|line| line.to_owned())
             .collect();
@@ -106,7 +108,11 @@ impl WaffleBoard {
         return ret;
     }
 
-    fn score(&self, other: &Self) -> i32 { return -(self.diff(&other).len() as i32); }
+    fn score(&self, other: &Self) -> i32 {
+        // Score is just the number of different cells between itself and the target, but negative.
+        // That is to say, fewer differences means a higher score.
+        return -(self.diff(&other).len() as i32);
+    }
 
     fn display(&self) -> String {
         return self.cells.iter()
@@ -133,13 +139,13 @@ impl State {
 }
 
 impl Ord for State {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
         return self.cur.score(&self.dest).cmp(&other.cur.score(&other.dest));
     }
 }
 
 impl PartialOrd for State {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         return Some(self.cmp(other));
     }
 }
@@ -149,10 +155,13 @@ fn find_swaps(from: &WaffleBoard, into: &WaffleBoard) -> Option<Vec<Swap>> {
         let differences = board.diff(into);
         if differences.len() == 0 { return Vec::new(); }
         assert!(differences.len() > 1, "Expected at least 2 differences; nothing to swap!");
+        // Find all unique possible swaps; note that Swap::new already acts as a sorted pair of
+        // coordintes, so any two swaps of point a and point b are identical.
         let uniques: HashSet<Swap> = differences.into_iter()
             .combinations(2)
             .map(|pair| Swap::new(pair[0], pair[1]))
             .collect();
+        // sort the possible swaps, so that the output will be deterministic.
         let mut sorted: Vec<Swap> = uniques.into_iter().collect();
         sorted.sort();
         return sorted;
@@ -161,10 +170,17 @@ fn find_swaps(from: &WaffleBoard, into: &WaffleBoard) -> Option<Vec<Swap>> {
     let mut states: BinaryHeap<State> = BinaryHeap::new();
     states.push(State::new(from.clone(), into, Vec::new()));
 
-    while let Some(State { cur, dest, steps }) = states.pop() {
-        if cur == dest { return Some(steps.into_iter().collect()); }
+    // BinaryHeap is a max heap; pop will return the highest item. That means, we will continually
+    // find the board with the fewest differences between itself and the target.
+    while let Some(State { cur, dest: _, steps }) = states.pop() {
+        let cur_score = cur.score(&into);
+        if cur_score == 0 { return Some(steps.into_iter().collect()); }
         for swap in get_swaps(&cur) {
             let next = cur.swap(swap.a, swap.b);
+
+            // If this swap makes our position worse (it is more different than cur is), skip it.
+            if next.score(&into) <= cur_score { continue; }
+
             let mut path: Vec<Swap> = steps.iter().cloned().collect();
             path.push(swap);
             let state = State::new(next, into, path);
@@ -185,11 +201,11 @@ fn show_transformation(cur: &WaffleBoard, steps: &[Swap]) {
     return show_transformation(&cur.swap(step.a, step.b), &steps[1..]);
 }
 
-fn main() -> std::io::Result<()> {
-    let args: Vec<String> = std::env::args().collect();
+fn main() -> io::Result<()> {
+    let args: Vec<String> = env::args().collect();
     if args.len() != 3 {
         eprintln!("Expected 2 command line arguments but got {}", args.len() - 1);
-        std::process::exit(1);
+        process::exit(1);
     }
 
     let from_board = WaffleBoard::new(Path::new(&args[1]))?;
