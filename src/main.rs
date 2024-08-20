@@ -122,29 +122,29 @@ impl WaffleBoard {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
-struct State {
+struct State<'a> {
     cur: WaffleBoard,
-    dest: WaffleBoard,
+    dest: &'a WaffleBoard,
     steps: Vec<Swap>,
 }
 
-impl State {
-    fn new(cur: WaffleBoard, dest: &WaffleBoard, steps: Vec<Swap>) -> Self {
+impl<'a> State<'a> {
+    fn new(cur: WaffleBoard, dest: &'a WaffleBoard, steps: Vec<Swap>) -> Self {
         return Self {
             cur: cur,
-            dest: dest.clone(),
+            dest: dest,
             steps: steps,
         };
     }
 }
 
-impl Ord for State {
+impl<'a> Ord for State<'a> {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         return self.cur.score(&self.dest).cmp(&other.cur.score(&other.dest));
     }
 }
 
-impl PartialOrd for State {
+impl<'a> PartialOrd for State<'a> {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         return Some(self.cmp(other));
     }
