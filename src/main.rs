@@ -13,9 +13,9 @@
 //
 use std::path::Path;
 use itertools::Itertools;
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, HashSet};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct Coord {
     row: usize,
     col: usize,
@@ -27,7 +27,7 @@ impl std::fmt::Display for Coord {
     }
 }
 
-#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, Hash)]
 struct Swap {
     a: Coord,
     b: Coord,
@@ -147,15 +147,15 @@ impl PartialOrd for State {
 fn find_swaps(from: &WaffleBoard, into: &WaffleBoard) -> Option<Vec<Swap>> {
     let get_swaps = |board: &WaffleBoard| -> Vec<Swap> {
         let differences = board.diff(into);
-        if differences.len() == 0 { return vec![]; }
-        assert!(differences.len() >= 1, "Expected at least 2 differences; nothing to swap!");
-        let mut swaps: Vec<Swap> = differences.into_iter()
+        if differences.len() == 0 { return Vec::new(); }
+        assert!(differences.len() > 1, "Expected at least 2 differences; nothing to swap!");
+        let uniques: HashSet<Swap> = differences.into_iter()
             .combinations(2)
             .map(|pair| Swap::new(pair[0], pair[1]))
             .collect();
-        swaps.sort();
-        swaps.dedup();
-        return swaps;
+        let mut sorted: Vec<Swap> = uniques.into_iter().collect();
+        sorted.sort();
+        return sorted;
     };
 
     let mut states: BinaryHeap<State> = BinaryHeap::new();
