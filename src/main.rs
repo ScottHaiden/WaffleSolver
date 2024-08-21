@@ -75,7 +75,8 @@ impl WaffleBoard {
         });
     }
 
-    fn swap(&self, a: Coord, b: Coord) -> Self {
+    fn swap(&self, swap: Swap) -> Self {
+        let Swap { a, b } = swap;
         let mut c = self.cells.clone();
         (c[a.row][a.col], c[b.row][b.col]) = (c[b.row][b.col], c[a.row][a.col]);
         return Self { cells: c };
@@ -111,7 +112,7 @@ impl WaffleBoard {
     fn score(&self, other: &Self) -> i32 {
         // Score is just the number of different cells between itself and the target, but negative.
         // That is to say, fewer differences means a higher score.
-        return -(self.diff(&other).len() as i32);
+        return -(self.diff(other).len() as i32);
     }
 
     fn display(&self) -> String {
@@ -140,7 +141,7 @@ impl<'a> State<'a> {
 
 impl<'a> Ord for State<'a> {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        return self.cur.score(&self.dest).cmp(&other.cur.score(&other.dest));
+        return self.cur.score(self.dest).cmp(&other.cur.score(other.dest));
     }
 }
 
@@ -173,13 +174,13 @@ fn find_swaps(from: &WaffleBoard, into: &WaffleBoard) -> Option<Vec<Swap>> {
     // BinaryHeap is a max heap; pop will return the highest item. That means, we will continually
     // find the board with the fewest differences between itself and the target.
     while let Some(State { cur, dest: _, steps }) = states.pop() {
-        let cur_score = cur.score(&into);
+        let cur_score = cur.score(into);
         if cur_score == 0 { return Some(steps.into_iter().collect()); }
         for swap in get_swaps(&cur) {
-            let next = cur.swap(swap.a, swap.b);
+            let next = cur.swap(swap);
 
             // If this swap makes our position worse (it is more different than cur is), skip it.
-            if next.score(&into) <= cur_score { continue; }
+            if next.score(into) <= cur_score { continue; }
 
             let mut path: Vec<Swap> = steps.iter().copied().collect();
             path.push(swap);
@@ -194,11 +195,11 @@ fn find_swaps(from: &WaffleBoard, into: &WaffleBoard) -> Option<Vec<Swap>> {
 fn show_transformation(cur: &WaffleBoard, steps: &[Swap]) {
     println!("{}", cur.display());
     if steps.len() == 0 { return; }
-    let step = &steps[0];
+    let step: Swap = steps[0];
     println!("- swap '{}' at {} with '{}' at {}",
              cur.get(step.a), step.a,
              cur.get(step.b), step.b);
-    return show_transformation(&cur.swap(step.a, step.b), &steps[1..]);
+    return show_transformation(&cur.swap(step), &steps[1..]);
 }
 
 fn main() -> io::Result<()> {
