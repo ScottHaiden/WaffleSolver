@@ -5,3 +5,11 @@ edition = "2021"
 
 [dependencies]
 itertools = "0.13.0"
+
+[[bin]]
+name = "findswaps"
+path = "src/findswaps/main.rs"
+
+[[bin]]
+name = "findanswers"
+path = "src/findanswers/main.rs"
