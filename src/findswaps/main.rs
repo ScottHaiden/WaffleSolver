@@ -11,7 +11,7 @@
 // You should have received a copy of the GNU General Public License along with WaffleSolver. If
 // not, see <https://www.gnu.org/licenses/>.
 
-use std::collections::{BinaryHeap, HashSet};
+use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::path::Path;
 use std::{cmp, env, fmt, fs, io, process};
 
@@ -43,7 +43,7 @@ impl Swap {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 struct WaffleBoard {
     cells: Vec<Vec<char>>
 }
@@ -126,15 +126,13 @@ impl WaffleBoard {
 struct State<'a> {
     cur: WaffleBoard,
     dest: &'a WaffleBoard,
-    steps: Vec<Swap>,
 }
 
 impl<'a> State<'a> {
-    fn new(cur: WaffleBoard, dest: &'a WaffleBoard, steps: Vec<Swap>) -> Self {
+    fn new(cur: WaffleBoard, dest: &'a WaffleBoard) -> Self {
         return Self {
             cur: cur,
             dest: dest,
-            steps: steps,
         };
     }
 }
@@ -168,24 +166,41 @@ fn find_swaps(from: &WaffleBoard, into: &WaffleBoard) -> Option<Vec<Swap>> {
         return sorted;
     };
 
+    let mut map: HashMap<WaffleBoard, Vec<Swap>> = HashMap::new();
     let mut states: BinaryHeap<State> = BinaryHeap::new();
-    states.push(State::new(from.clone(), into, Vec::new()));
+
+    map.insert(from.clone(), Vec::new());
+    states.push(State::new(from.clone(), into));
 
     // BinaryHeap is a max heap; pop will return the highest item. That means, we will continually
     // find the board with the fewest differences between itself and the target.
-    while let Some(State { cur, dest: _, steps }) = states.pop() {
+    while let Some(State { cur, dest: _ }) = states.pop() {
+        let prev_path = map.get(&cur).unwrap();
+        if prev_path.len() > 10 { continue; }
+        let steps: Vec<Swap> = prev_path.iter().copied().collect();
         let cur_score = cur.score(into);
-        if cur_score == 0 { return Some(steps.into_iter().collect()); }
+        if cur_score == 0 { return Some(steps); }
         for swap in get_swaps(&cur) {
             let next = cur.swap(swap);
 
             // If this swap makes our position worse (it is more different than cur is), skip it.
             if next.score(into) <= cur_score { continue; }
 
+            let prev_len = match map.get(&next) {
+                None => None,
+                Some(prev_path) => Some(prev_path.len()),
+            };
+
+            // If we've already seen this state before, and the old path is no shorter than the
+            // current path (ie, we have no improvement), then continue.
+            if prev_len.is_some() && prev_len.unwrap() <= steps.len() + 1 { continue; }
+
+            // Otherwise we have a new board state, or we have found a faster route to an old board
+            // state, so update the map and re-add the current board state for re-evaluation.
             let mut path: Vec<Swap> = steps.iter().copied().collect();
             path.push(swap);
-            let state = State::new(next, into, path);
-            states.push(state);
+            map.insert(next.clone(), path);
+            states.push(State::new(next, into));
         }
     }
 
