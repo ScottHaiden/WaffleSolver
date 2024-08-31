@@ -11,7 +11,7 @@
 // You should have received a copy of the GNU General Public License along with WaffleSolver. If
 // not, see <https://www.gnu.org/licenses/>.
 
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::Path;
 use std::{cmp, env, fmt, fs, io, process};
 
@@ -109,10 +109,9 @@ impl WaffleBoard {
         return ret;
     }
 
-    fn score(&self, other: &Self) -> i32 {
-        // Score is just the number of different cells between itself and the target, but negative.
-        // That is to say, fewer differences means a higher score.
-        return -(self.diff(other).len() as i32);
+    fn score(&self, other: &Self) -> usize {
+        // Score is just the number of different cells between itself and the target.
+        return self.diff(other).len();
     }
 
     fn display(&self) -> String {
@@ -167,14 +166,14 @@ fn find_swaps(from: &WaffleBoard, into: &WaffleBoard) -> Option<Vec<Swap>> {
     };
 
     let mut map: HashMap<WaffleBoard, Vec<Swap>> = HashMap::new();
-    let mut states: BinaryHeap<State> = BinaryHeap::new();
+    let mut states: BTreeSet<State> = BTreeSet::new();
 
     map.insert(from.clone(), Vec::new());
-    states.push(State::new(from.clone(), into));
+    states.insert(State::new(from.clone(), into));
 
-    // BinaryHeap is a max heap; pop will return the highest item. That means, we will continually
+    // BTreeSet is a max heap; pop will return the highest item. That means, we will continually
     // find the board with the fewest differences between itself and the target.
-    while let Some(State { cur, dest: _ }) = states.pop() {
+    while let Some(State { cur, dest: _ }) = states.pop_first() {
         let prev_path = map.get(&cur).unwrap();
         if prev_path.len() > 10 { continue; }
         let steps: Vec<Swap> = prev_path.iter().copied().collect();
@@ -184,7 +183,7 @@ fn find_swaps(from: &WaffleBoard, into: &WaffleBoard) -> Option<Vec<Swap>> {
             let next = cur.swap(swap);
 
             // If this swap makes our position worse (it is more different than cur is), skip it.
-            if next.score(into) <= cur_score { continue; }
+            if next.score(into) >= cur_score { continue; }
 
             let prev_len = match map.get(&next) {
                 None => None,
@@ -200,7 +199,7 @@ fn find_swaps(from: &WaffleBoard, into: &WaffleBoard) -> Option<Vec<Swap>> {
             let mut path: Vec<Swap> = steps.iter().copied().collect();
             path.push(swap);
             map.insert(next.clone(), path);
-            states.push(State::new(next, into));
+            states.insert(State::new(next, into));
         }
     }
 
