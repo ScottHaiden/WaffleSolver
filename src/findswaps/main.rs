@@ -138,7 +138,11 @@ impl<'a> State<'a> {
 
 impl<'a> Ord for State<'a> {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        return self.cur.score(self.dest).cmp(&other.cur.score(other.dest));
+        let ret = self.cur.score(self.dest).cmp(&other.cur.score(other.dest));
+        return match ret {
+            cmp::Ordering::Equal => self.cur.cells.cmp(&other.cur.cells),
+            _ => ret,
+        };
     }
 }
 
@@ -171,24 +175,25 @@ fn find_swaps(from: &WaffleBoard, into: &WaffleBoard) -> Option<Vec<Swap>> {
     map.insert(from.clone(), Vec::new());
     states.insert(State::new(from.clone(), into));
 
-    // BTreeSet is a max heap; pop will return the highest item. That means, we will continually
-    // find the board with the fewest differences between itself and the target.
+    // BTreeSet is a sorted set. pop_first  will return the lowest-scored item. That means, we will
+    // continually find the (or a) board with the fewest differences between itself and the target.
     while let Some(State { cur, dest: _ }) = states.pop_first() {
+        // A reference to the old path, so we can check its length.
         let prev_path = map.get(&cur).unwrap();
         if prev_path.len() > 10 { continue; }
+
+        // If it's not already too long, we can take the time to copy it into the local scope.
         let steps: Vec<Swap> = prev_path.iter().copied().collect();
         let cur_score = cur.score(into);
         if cur_score == 0 { return Some(steps); }
+
         for swap in get_swaps(&cur) {
             let next = cur.swap(swap);
 
-            // If this swap makes our position worse (it is more different than cur is), skip it.
+            // If this swap does not improve our position, skip it.
             if next.score(into) >= cur_score { continue; }
 
-            let prev_len = match map.get(&next) {
-                None => None,
-                Some(prev_path) => Some(prev_path.len()),
-            };
+            let prev_len = map.get(&next).map(Vec::len);
 
             // If we've already seen this state before, and the old path is no shorter than the
             // current path (ie, we have no improvement), then continue.
